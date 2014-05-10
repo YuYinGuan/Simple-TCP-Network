@@ -1,4 +1,4 @@
-# Makefile for List ADT
+# Makefile
 #
 # make             makes ListTest and Shuffle
 # make clean       removes object files

@@ -11,10 +11,10 @@
 #include <math.h>
 #include <errno.h>
 
-
 #define SIZE 1024
 
-//Used as argument to thread_start()
+//************************************** THREAD ARGUMENT ************************************************//
+
 struct thread_info{    
    pthread_t   thread_id;        
    struct sockaddr_in servAddr;
@@ -30,97 +30,108 @@ struct thread_info{
    int         flag;
 };
 
-//Programs in Threads
+//************************************** THREAD ************************************************//
 static void * thread_start(void *arg){
-   struct thread_info *threadInfo = arg;
+   
+   //++++++++++++++++++++++++++ THREAD VARIABLES ++++++++++++++++++++++++++++++++++++++++
+   //General Variables
+   struct thread_info *threadInfo = arg;     //Pharse the input for threads
    char tBuf[SIZE];
-   char *endReq = "END";
+   char *endReq = "END";                     //Buffer for End connection command
    int n;
-   int fileSize = threadInfo->reqByteSize;
-   int *token1, *token2;
-   int stage = 0; //stage 0 is to receive filesize, 1 is to request data 
-   int s_Byte = threadInfo->startByte;
-   int r_Byte = 1000;
+   int *token1, *token2;                     
+   
+   //Variable Start Bytes and Size for data request
+   int s_Byte = threadInfo->startByte;       //Start Bytes
+   int fileSize = threadInfo->reqByteSize;   //Total amount requesting
+   int r_Byte = 1000;                        // divide, or max udp transfer request byte size
+   
+   //TimeOut Variables
    int tTimeOut = 10;
    int tTries = 0;
-   FILE threadOut;
    
+   //Init flag for successful transfer and allocate memory for data requested
    threadInfo->FileData = (char *)malloc(fileSize*sizeof(char));
    threadInfo->flag = 0;
    
+   //*********************************** MAIN THREAD LOOP ***********************************//   
    while(1){
-      if(fileSize<=0){
+   
+      //Determine the amount of bytes for request
+      if(fileSize<=0){     //keep requesting 1000Bytes of data
          break;
-      }else if(fileSize <1000){
+      }else if(fileSize <1000){  //request the rest of the left over Bytes
          r_Byte = fileSize;
       }
-   printf("Pthread serv IP:Port = %s:%d\n", inet_ntoa(threadInfo->servAddr.sin_addr), ntohs(threadInfo->servAddr.sin_port)); 
       
+      //Reseting Buffer
       memset(tBuf, 0, sizeof(tBuf));
-
       snprintf(tBuf, 100, "File Data:%s:%d:%d", threadInfo->fileName, s_Byte, r_Byte);
-      
-   printf("What is in tBuf: %s\n", tBuf); 
 
+      //Request for data
       if (sendto(threadInfo->sockfd, tBuf, strlen(tBuf), 0, (struct sockaddr *) &threadInfo->servAddr, threadInfo->len) == -1) {
          fprintf(stderr,"ERROR: Unable send file name\n");
          threadInfo->flag = 1;
          break;
       }
       
-      printf("just sented\n"); 
-      
+      //Retrieve data from Server
       if((n = recvfrom(threadInfo->sockfd, tBuf, SIZE, 0, (struct sockaddr *) &threadInfo->servAddr, &threadInfo->len)) != -1) {
+         //reset timeout tries
          tTries = 0;
-      
          tBuf[n]='\0';
          
+         //Get the bytes received indicated by Server
          token1 = strtok(tBuf, ":");
-   printf("token1 = %s\n",token1); 
-
          token2 = strtok(NULL, ":");
-
-   printf("token2 = %s\n",token2); 
          
-         
+         //If wrong Packet, skip it, else store data
          if((atoi(token1) != s_Byte) || (atoi(token2) != r_Byte)){
             continue;
          }else{
             token2 = strtok(NULL, ":");
          }
 
-         //printf("Received from %s:%d:", inet_ntoa(threadInfo->servAddr.sin_addr), ntohs(threadInfo->servAddr.sin_port)); 
-         //fprintf(stdout," %d:%s\n",n, tBuf);
+         //Put the small chucks into Request Bytes
          strcat(threadInfo->FileData, token2);
+         
+         //Setup next start byte and request bytes
          s_Byte += r_Byte;
          fileSize -= r_Byte;
+         
       }else{
-         printf("tTries = %d\n",tTries ); 
-         if(++tTries>10){
-            threadInfo->flag = 1;
+      
+         //Times Out,
+         if(++tTries>tTimeOut){     //if more than 10 tries
+            threadInfo->flag = 1;      //exit and flag something went wrong
             break;
-               printf("Disconnected Thread %d\n",threadInfo->thread_num ); 
          }
       }
       
    }
-   
-   //end connection   
+
+   //+++++++++++++++++++++++++++++ END TRANSFER & CLEAN UP/WRITE DATA+++++++++++++++++++++++++++++++++
+ 
+   //Notify Server for Ending transfer
    if (sendto(threadInfo->sockfd, endReq, strlen(endReq), 0, (struct sockaddr *) &threadInfo->servAddr, threadInfo->len) == -1) {
       perror("sendto()");
       return EXIT_FAILURE;
    }   
 
+   //If nothing goes wrong, write the data into the file   
    if(threadInfo->flag == 0){
       fseek(threadInfo->outFile,threadInfo->startByte, SEEK_SET);
       fwrite(threadInfo->FileData, sizeof(char), threadInfo->reqByteSize ,threadInfo->outFile);
    }
    
+   //Clean Up
    free(threadInfo->FileData);
    close(threadInfo->sockfd);
    pthread_exit((void*) arg);
 }
 
+
+//************************************** MAIN ************************************************//
 int main(int argc, char *argv[]) {
 
    //Checking for Valid user arguments
@@ -129,7 +140,8 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
    }
    
-//++++++++++++++++++++++++++++++++++++++++++ VARIABLES +++++++++++++++++++++++++++++++++++++++++++++++++++   
+   //++++++++++++++++++++++++++++++++++++++++++ VARIABLES +++++++++++++++++++++++++++++++++++++++++++++++++++
+   
    //General Variables
    char buf[SIZE];               //General Buffer
    int n, i, t;                  //general variables
@@ -166,7 +178,7 @@ int main(int argc, char *argv[]) {
    int timeTries;       //amount of timeouts
 
    
-//++++++++++++++++++++++++++++++++ INITIALIZATION ++++++++++++++++++++++++++++++++++
+   //++++++++++++++++++++++++++++++++ INITIALIZATION ++++++++++++++++++++++++++++++++++
    
    //allocate memory to multiple thread_info structure
    pThreads = calloc(allCon, sizeof(struct thread_info));
@@ -202,8 +214,7 @@ int main(int argc, char *argv[]) {
    counter +=1; //add one because the last line shouldn't have line space
 
    
-//**************************************** MAIN LOOP***********************************//
-   
+   //**************************************** MAIN LOOP***********************************//
    do{
       //+++++++++++++++++++++++++++ INITIALIZATION OF VARIABLES (EVERYLOOP) +++++++++++++++++++++++++++
       
@@ -252,6 +263,7 @@ CONNECT:
          memset(buf, 0, sizeof(buf));
          snprintf(buf, sizeof(buf), "File Name:%s", argv[1]);
          
+         
          //connect function using UDP, Init with request for file size
          if (sendto(pThreads[serNum].sockfd, buf, strlen(buf), 0, (struct sockaddr *) &servAddr, len) == -1) {
             fprintf(stderr, "Error: Sendto socket #%s \n", s_ip);
@@ -289,10 +301,11 @@ CONNECT:
                pThreads[serNum].thread_num = serNum;           //its server Number I assigned
                pThreads[serNum].len = len;
                pThreads[serNum].numberConnection = atoi(argv[2]);
-               pThreads[serNum].reqByteSize = ceil((double)(wholeFile/allCon));    
+               pThreads[serNum].reqByteSize = ceil((double)(wholeFile/allCon));    //Size of the chunk retrieving 
                pThreads[serNum].startByte = connectFlag[serNum] * pThreads[serNum].reqByteSize;        
             }
          }else{
+            //If Timed Out, tries 10 more times and consider it unreachable since have not heard from it at all
             if(timeTries<timeOut){
                timeTries++;
                goto CONNECT;
@@ -303,7 +316,7 @@ CONNECT:
             }
          }
          
-         //create a thread to handle this
+         //create a thread to handle each server
          pthread_create(&pThreads[serNum].thread_id, NULL, thread_start, &pThreads[serNum]);
       }
          
@@ -334,8 +347,6 @@ CONNECT:
             allCon = i;
          }
       }
-      
-   fprintf(stdout,"allCon = %d, connectFlag[0]=%d, connectFlag[1]=%d,connectFlag[2]=%d\n", allCon,connectFlag[0],connectFlag[1],connectFlag[2]);
    
    }while(allCon!=0);
    
