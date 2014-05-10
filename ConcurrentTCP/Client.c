@@ -39,6 +39,15 @@ int main(int argc, char* argv[]){
    char *IP;
    
    
+   
+   
+   
+   
+   
+   
+   
+   
+   
    //allocate memory to multiple thread_info structure
    pThreads = calloc(numCon, sizeof(struct thread_info));
    
@@ -58,6 +67,10 @@ int main(int argc, char* argv[]){
    struct sockaddr_in servAddr;
    servAddr.sin_family = AF_INET;
 
+      //Update Server Information
+      servAddr.sin_port = htons(20);
+      servAddr.sin_addr.s_addr = inet_addr("128.114.104.230");
+      
    //Create Threads for connection
    for(serNum = 0; serNum< numCon; serNum++){
    
@@ -73,9 +86,6 @@ int main(int argc, char* argv[]){
          Port = atoi(token);
       }  
       
-      //Update Server Information
-      servAddr.sin_port = htons(Port);
-      servAddr.sin_addr.s_addr = inet_addr(IP);
       
       //create a socket for each server and store it in structure
       if((pThreads[serNum].sockfd = socket(AF_INET, SOCK_STREAM,0))< 0){
@@ -85,7 +95,7 @@ int main(int argc, char* argv[]){
       
       //connect to servers
       printf("Port %d, Ip %s\n", Port, IP);
-      if(connect(pThreads[serNum].sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))< 0){
+      if(connect(pThreads[serNum].sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))< 0){ //
          fprintf(stderr, "Error : Connect to socket #%d Failed \n", serNum);
          return EXIT_FAILURE;
       }

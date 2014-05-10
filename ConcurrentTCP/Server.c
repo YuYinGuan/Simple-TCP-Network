@@ -65,39 +65,48 @@ int main(int argc, char* argv[]){
 
    while(1){
       rset = allset;
+printf("right before select\n");
 
       nready = select(maxfd +1, &rset, NULL, NULL,NULL);
 
       if(FD_ISSET(listenfd, &rset)){
+printf("In FD_ISSET listenfd\n");
          connfd = accept(listenfd, (struct sockaddr*)NULL ,NULL);
          for(i=0; i<FD_SETSIZE; i++){
             if(client[i] < 0){
+printf("In FD_ISSET listenfd if #1\n");
                client[i] = connfd;
                break;  
             }
          }
          if(i == FD_SETSIZE){
+printf("In FD_ISSET listenfd if #2\n");
             fprintf(stderr, "ERROR: Too Many Clients");
             return EXIT_FAILURE;
          }
 
          FD_SET(connfd, &allset);
          if(connfd > maxfd){
+printf("In FD_ISSET listenfd if #3\n");
             maxfd = connfd;
          }
          if(i>maxi){
+printf("In FD_ISSET listenfd if #4\n");
             maxi = i;
          }
          if(--nready <=0){
+printf("In FD_ISSET listenfd if #5\n");
             continue;
          }
 	
       }
       for(i =0; i<= maxi; i++){
+printf("In forloop\n");
          if((sockfd = client[i])<0){
             continue;
          }
          if(FD_ISSET(sockfd, &rset)){
+		printf("In FD_ISSET sockfd\n");
             if((byteSize = read(sockfd, recvBuff, 1024))==0){
                close(sockfd);
                FD_CLR(sockfd, &allset);
