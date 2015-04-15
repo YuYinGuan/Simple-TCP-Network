@@ -1,0 +1,15 @@
+A Bit About Heartbleed
+
+Heartbleed allows someone making a connection using TLS to read a random piece of server memory, which may contain important bits – private keys, fragments of cached files, etc. Make another connection, get another 64KB of data. Do this enough times and a bad actor may get enough useful information to do some damage – for instance a private key the server uses to authenticate itself and encrypt communication.
+
+With the private key, an adversary can impersonate a server. If they can intercept traffic, they can also decrypt it. If the server is using crypto-suites that don’t support perfect forward secrecy (PFS), the adversary can also get at data collected in the past. And because it leaves no trace, we cannot be sure if the vulnerability has been exploited and to what extent.
+
+This is pretty bad stuff.
+
+Most prominent sites and services have been fixed (see Mashable’s summary of affected sites). Things are getting back to normal for most web services, although we will probably hear more about the impact of this bug as time goes on.
+
+Building Blocks of Internet Security
+
+So how resilient is the Internet to such vulnerabilities? Let’s begin with the fact that there is no absolute security or absolutely flawless software in real life. And what differentiates a resilient system from a fragile one is not necessarily the absence of flaws. It is the absence of a single (or double, or triple, depending on the requirements) point of failure. In information security jargon it is called “defense in depth” – securing one layer alone (say, an application) is not enough.
+
+So what are other security technologies that can provide additional layers of protection?
